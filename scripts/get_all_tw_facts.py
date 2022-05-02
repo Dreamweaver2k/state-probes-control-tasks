@@ -2,6 +2,7 @@ import os
 import textworld
 import json
 import sys
+sys.path.insert(0,'/content/state-probes-control-tasks')
 from data.textworld.tw_dataloader import TWDataset
 import argparse
 from transformers import (

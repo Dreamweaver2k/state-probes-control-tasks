@@ -4,6 +4,8 @@ from torch import optim
 import torch.nn.functional as F
 
 import numpy as np
+import sys
+sys.path.insert(0,'/content/state-probes-control-tasks')
 
 import textworld
 from transformers import BartConfig, T5Config

@@ -3,6 +3,9 @@ import os
 import glob
 import json
 from tqdm import tqdm
+import sys
+sys.path.insert(0,'/content/state-probes-control-tasks')
+
 from data.textworld.tw_dataloader import TWDataset, load_possible_pairs
 from data.textworld.parse_tw import parse_facts_to_nl, parse_nl_to_facts
 from data.textworld.utils import ENTITIES_SIMPLE, ROOMS_SIMPLE, EntitySet, get_relevant_facts_about
