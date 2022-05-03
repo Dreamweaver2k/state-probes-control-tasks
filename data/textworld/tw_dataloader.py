@@ -26,6 +26,7 @@ class TWDataset(Dataset):
         control_task = None,
         inform7_game=None, randseed=None, logger=None, *args, **kwargs,
     ):
+        self.control_task = control_task
         self.data_dir = data_dir
         self.tokenizer = tokenizer
         self.data_split = data_split
@@ -62,9 +63,11 @@ class TWDataset(Dataset):
         return game_ids
 
     def load_data(self):
-        with open("controlmap.json", "r") as read_file:
-          print("Converting JSON encoded data into Python dictionary")
-          self.object_map = json.load(read_file)
+        # with open("controlmap.json", "r") as read_file:
+        #   print("Converting JSON encoded data into Python dictionary")
+        #   self.object_map = json.load(read_file)
+        self.object_map = {}
+        self.prop_map = {}
         init_actions_data = {'contexts': [], 'tgts': [], 'final_states': [], 'init_states': [], 'filenames': []}  # init state + actions
         n_states = 0
         files = sorted(glob.glob(os.path.join(os.path.join(self.data_dir, self.data_split), "*_states.txt")))
@@ -153,20 +156,177 @@ class TWDataset(Dataset):
         if self.logger: self.logger.info(f"Using files order: {init_actions_data['filenames']}")
         self.data = init_actions_data
         ### NEW
-        for k in self.data:
-          print(k)
-        print(self.data['init_states'][0])
-        print(self.data['tgts'][0:10])
+        if self.control_task is "object_control":
+            self.object_control()
+            with open('controlmap.json', 'w') as f:
+                json.dump(self.object_map, f)
+        elif self.control_task is "prop_control":
+            self.prop_control()
+            with open('controlmap.json', 'w') as f:
+                json.dump(self.prop_map, f)
+        
+        # for k in self.data:
+        #   print(k)
+        # print(self.data['init_states'][0])
+        # print(self.data['tgts'][0:10])
 
         
+        # for i in range(len(self.data['final_states'])):
+        #     self.data['final_states'][i] = self.control_data(self.data['final_states'][i])
+        # for i in range(len(self.data['init_states'])):
+        #     self.data['init_states'][i] = self.control_data(self.data['init_states'][i])
+        
+        
+    
+    def prop_control(self):
         for i in range(len(self.data['final_states'])):
-          self.data['final_states'][i] = self.control_data(self.data['final_states'][i])
+            self.data['final_states'][i] = self.get_prop_remap(self.data['final_states'][i])
         for i in range(len(self.data['init_states'])):
-          self.data['init_states'][i] = self.control_data(self.data['init_states'][i])
-        
-        with open('controlmap.json', 'w') as f:
-          json.dump(self.object_map, f)
+            self.data['init_states'][i] = self.get_prop_remap(self.data['init_states'][i])
 
+        for i in range(len(self.data['final_states'])):
+            self.data['final_states'][i] = self.prop_remap(self.data['final_states'][i])
+        for i in range(len(self.data['init_states'])):
+            self.data['init_states'][i] = self.prop_remap(self.data['init_states'][i])
+    
+    def object_control(self):
+        for i in range(len(self.data['final_states'])):
+            self.data['final_states'][i] = self.get_object_remap(self.data['final_states'][i])
+        for i in range(len(self.data['init_states'])):
+            self.data['init_states'][i] = self.get_object_remap(self.data['init_states'][i])
+
+        for i in range(len(self.data['final_states'])):
+            self.data['final_states'][i] = self.object_remap(self.data['final_states'][i])
+        for i in range(len(self.data['init_states'])):
+            self.data['init_states'][i] = self.object_remap(self.data['init_states'][i])
+    
+    def object_remap(self,data):
+        full_facts = data['full_facts']
+
+        
+
+        for fact in full_facts:
+          objects = fact['arguments']
+          for o in objects:
+            name = o['name']
+            if o['name'] not in self.object_map:
+              self.object_map[name] = choice(['true', 'false'])
+        
+
+        mapped_data = {'full_facts':[], 'belief_facts': {'true': [], 'false': []}, 'full_belief_facts': {'true': [], 'false': []}, 'full2_belief_facts': {'true': [], 'false': []}, 'inventory': data['inventory'], 'description': data['description']}
+
+        for fact in full_facts:
+          mapped_data['full_facts'].append(fact)
+          os = fact['arguments']
+          if len(os) == 1:
+            map_belief = self.object_map[os[0]['name']]
+          else:
+            map_belief = self.object_map[os[1]['name']]
+
+          if fact in data['belief_facts']['true'] or fact in data['belief_facts']['false']:
+            mapped_data['belief_facts'][map_belief].append(fact)
+          
+          if fact in data['full_belief_facts']['true'] or fact in data['full_belief_facts']['false']:
+            mapped_data['full_belief_facts'][map_belief].append(fact)
+          
+          if fact in data['full2_belief_facts']['true'] or fact in data['full2_belief_facts']['false']:
+            mapped_data['full2_belief_facts'][map_belief].append(fact)
+          
+        return mapped_data
+
+    def prop_remap(self,data):
+        full_facts = data['full_facts']            
+        
+        mapped_data = {'full_facts':[], 'belief_facts': {'true': [], 'false': []}, 'full_belief_facts': {'true': [], 'false': []}, 'full2_belief_facts': {'true': [], 'false': []}, 'inventory': data['inventory'], 'description': data['description']}
+
+        for fact in full_facts:
+            prop = ''
+            relation = fact['name']
+            prop += relation
+            objects = fact['arguments']
+            for o in objects:
+                name = o['name']
+                prop += name
+            if prop not in self.prop_map:
+                self.prop_map[prop] = choice(['true', 'false'])
+            
+            mapped_data['full_facts'].append(fact)
+            
+            map_belief = self.prop_map[prop]
+
+            if fact in data['belief_facts']['true'] or fact in data['belief_facts']['false']:
+                mapped_data['belief_facts'][map_belief].append(fact)
+            
+            if fact in data['full_belief_facts']['true'] or fact in data['full_belief_facts']['false']:
+                mapped_data['full_belief_facts'][map_belief].append(fact)
+            
+            if fact in data['full2_belief_facts']['true'] or fact in data['full2_belief_facts']['false']:
+                mapped_data['full2_belief_facts'][map_belief].append(fact)
+            
+            # print(mapped_data['full_belief_facts'])
+            # print(data['full_belief_facts'])
+            return mapped_data
+
+    def get_object_remap(self,data):
+        full_facts = data['full_facts']
+        for fact in full_facts:
+          relation = fact['name']
+          objects = fact['arguments']
+          for o in objects:
+            name = o['name']
+            if o['name'] not in self.object_map:
+              self.object_map[name] = choice(['true', 'false'])
+
+    def get_prop_remap(self,data):
+        full_facts = data['full_facts']
+        for fact in full_facts:
+            prop = ''
+            relation = fact['name']
+            prop += relation
+            objects = fact['arguments']
+            for o in objects:
+                name = o['name']
+                prop += name
+            if prop not in self.prop_map:
+                self.prop_map[prop] = choice(['true', 'false']) 
+
+    def control_data(self, data):
+        full_facts = data['full_facts']
+
+        
+
+        for fact in full_facts:
+          relation = fact['name']
+          objects = fact['arguments']
+          for o in objects:
+            name = o['name']
+            if o['name'] not in self.object_map:
+              self.object_map[name] = choice(['true', 'false'])
+        
+
+        mapped_data = {'full_facts':[], 'belief_facts': {'true': [], 'false': []}, 'full_belief_facts': {'true': [], 'false': []}, 'full2_belief_facts': {'true': [], 'false': []}, 'inventory': data['inventory'], 'description': data['description']}
+
+        for fact in full_facts:
+          mapped_data['full_facts'].append(fact)
+          os = fact['arguments']
+          if len(os) == 1:
+            map_belief = self.object_map[os[0]['name']]
+          else:
+            map_belief = self.object_map[os[1]['name']]
+
+          if fact in data['belief_facts']['true'] or fact in data['belief_facts']['false']:
+            mapped_data['belief_facts'][map_belief].append(fact)
+          
+          if fact in data['full_belief_facts']['true'] or fact in data['full_belief_facts']['false']:
+            mapped_data['full_belief_facts'][map_belief].append(fact)
+          
+          if fact in data['full2_belief_facts']['true'] or fact in data['full2_belief_facts']['false']:
+            mapped_data['full2_belief_facts'][map_belief].append(fact)
+          
+        # print(mapped_data['full_belief_facts'])
+        # print(data['full_belief_facts'])
+        return mapped_data
+    
 
 class TWEntitySetDataset(TWDataset):
     """
