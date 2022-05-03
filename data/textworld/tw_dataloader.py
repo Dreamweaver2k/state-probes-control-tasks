@@ -65,9 +65,19 @@ class TWDataset(Dataset):
         return game_ids
 
     def load_data(self):
-        with open("controlpropmap.json", "r") as read_file:
-          print("Converting JSON encoded data into Python dictionary")
-          self.prop_map = json.load(read_file)
+        try:
+          with open("controlpropmap.json", "r") as read_file:
+            print("Converting JSON encoded data into Python dictionary")
+            self.prop_map = json.load(read_file)
+        except:
+            self.prop_map = {}
+          
+        try:
+          with open("controlcontextmap.json", "r") as read_file:
+            print("Converting JSON encoded data into Python dictionary")
+            self.context_map = json.load(read_file)
+        except:
+          self.context_map = {}
         self.object_map = {}
         print(len(self.prop_map))
 
@@ -160,7 +170,7 @@ class TWDataset(Dataset):
         if self.logger: self.logger.info(f"Using files order: {init_actions_data['filenames']}")
         self.data = init_actions_data
         ### NEW
-        print(len(self.data["final_states"][0]["full2_belief_facts"]['true']))
+        print(self.data["contexts"][0])
         print(len(self.data["final_states"][0]["full2_belief_facts"]['false']))
 
         print("control task: ")
@@ -175,6 +185,12 @@ class TWDataset(Dataset):
             self.prop_control()
             with open('controlpropmap.json', 'w') as f:
                 json.dump(self.prop_map, f)
+        elif self.control_task == "context_control":
+            print("entering context control")
+            
+            self.context_control()
+            with open('controlcontextmap.json', 'w') as f:
+                json.dump(self.context_map, f)
         
         # for k in self.data:
         #   print(k)
@@ -188,7 +204,7 @@ class TWDataset(Dataset):
         #     self.data['init_states'][i] = self.control_data(self.data['init_states'][i])
         
         
-    
+    def context_control(self):
     def prop_control(self):
         for i in range(len(self.data['init_states'])):
             self.get_prop_remap(self.data['init_states'][i])
