@@ -205,6 +205,16 @@ class TWDataset(Dataset):
         
         
     def context_control(self):
+        # for i in range(len(self.data['init_states'])):
+        #     self.get_prop_remap(self.data['init_states'][i])
+        for i in range(len(self.data['final_states'])):
+            self.get_context_remap(self.data['final_states'][i], self.data['contexts'][i])
+        
+        for i in range(len(self.data['final_states'])):
+            self.data['final_states'][i] = self.prop_remap(self.data['final_states'][i], self.data['contexts'][i])
+        # for i in range(len(self.data['init_states'])):
+        #     self.data['init_states'][i] = self.prop_remap(self.data['init_states'][i])
+    
     def prop_control(self):
         for i in range(len(self.data['init_states'])):
             self.get_prop_remap(self.data['init_states'][i])
@@ -293,6 +303,39 @@ class TWDataset(Dataset):
             # print(mapped_data['full_belief_facts'])
             # print(data['full_belief_facts'])
             return mapped_data
+    def context_remap(self,data,context):
+        full_facts = data['full_facts']            
+        
+        mapped_data = {'full_facts':[], 'belief_facts': {'true': [], 'false': []}, 'full_belief_facts': {'true': [], 'false': []}, 'full2_belief_facts': {'true': [], 'false': []}, 'inventory': data['inventory'], 'description': data['description']}
+        for j in range(len(full_facts)):
+            fact= full_facts[j]
+
+            prop = ''
+            relation = fact['name']
+            prop += relation
+            objects = fact['arguments']
+            for o in objects:
+                name = o['name']
+                prop += name
+            context += prop
+            if context not in self.context_map:
+                self.context_map[context] = choice(['true', 'false'])
+            mapped_data['full_facts'].append(fact)
+            
+            map_belief = self.context_map[context]
+
+            if fact in data['belief_facts']['true'] or fact in data['belief_facts']['false']:
+                mapped_data['belief_facts'][map_belief].append(fact)
+            
+            if fact in data['full_belief_facts']['true'] or fact in data['full_belief_facts']['false']:
+                mapped_data['full_belief_facts'][map_belief].append(fact)
+            
+            if fact in data['full2_belief_facts']['true'] or fact in data['full2_belief_facts']['false']:
+                mapped_data['full2_belief_facts'][map_belief].append(fact)
+            
+            # print(mapped_data['full_belief_facts'])
+            # print(data['full_belief_facts'])
+            return mapped_data
 
     def get_object_remap(self,data):
         full_facts = data['full_facts']
@@ -316,7 +359,21 @@ class TWDataset(Dataset):
                 prop += name
             if prop not in self.prop_map:
                 self.prop_map[prop] = choice(['true', 'false']) 
-
+    
+    def get_context_remap(self,data, context):
+        full_facts = data['full_facts']
+        for fact in full_facts:
+            prop = ''
+            relation = fact['name']
+            prop += relation
+            objects = fact['arguments']
+            for o in objects:
+                name = o['name']
+                prop += name
+            context += prop
+            if context not in self.context_map:
+                self.context_map[context] = choice(['true', 'false']) 
+    
     def control_data(self, data):
         full_facts = data['full_facts']
 
