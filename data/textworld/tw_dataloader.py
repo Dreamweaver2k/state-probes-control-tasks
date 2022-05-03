@@ -211,7 +211,7 @@ class TWDataset(Dataset):
             self.get_context_remap(self.data['final_states'][i], self.data['contexts'][i])
         
         for i in range(len(self.data['final_states'])):
-            self.data['final_states'][i] = self.prop_remap(self.data['final_states'][i], self.data['contexts'][i])
+            self.data['final_states'][i] = self.context_remap(self.data['final_states'][i], self.data['contexts'][i])
         # for i in range(len(self.data['init_states'])):
         #     self.data['init_states'][i] = self.prop_remap(self.data['init_states'][i])
     
@@ -303,7 +303,7 @@ class TWDataset(Dataset):
             # print(mapped_data['full_belief_facts'])
             # print(data['full_belief_facts'])
             return mapped_data
-    def context_remap(self,data,context):
+    def context_remap(self,data, context):
         full_facts = data['full_facts']            
         
         mapped_data = {'full_facts':[], 'belief_facts': {'true': [], 'false': []}, 'full_belief_facts': {'true': [], 'false': []}, 'full2_belief_facts': {'true': [], 'false': []}, 'inventory': data['inventory'], 'description': data['description']}
