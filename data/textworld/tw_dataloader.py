@@ -23,6 +23,7 @@ class TWDataset(Dataset):
     def __init__(
         self, data_dir, tokenizer, data_split, max_seq_len=512,
         max_data_size=10000, interleave_state_in_ctxt=False, pred_action_and_response_joint=False,
+        control_task = None,
         inform7_game=None, randseed=None, logger=None, *args, **kwargs,
     ):
         self.data_dir = data_dir
@@ -61,6 +62,9 @@ class TWDataset(Dataset):
         return game_ids
 
     def load_data(self):
+        with open("controlmap.json", "r") as read_file:
+          print("Converting JSON encoded data into Python dictionary")
+          self.object_map = json.load(read_file)
         init_actions_data = {'contexts': [], 'tgts': [], 'final_states': [], 'init_states': [], 'filenames': []}  # init state + actions
         n_states = 0
         files = sorted(glob.glob(os.path.join(os.path.join(self.data_dir, self.data_split), "*_states.txt")))
@@ -148,6 +152,20 @@ class TWDataset(Dataset):
             assert len(init_actions_data[k]) == len(init_actions_data['contexts'])
         if self.logger: self.logger.info(f"Using files order: {init_actions_data['filenames']}")
         self.data = init_actions_data
+        ### NEW
+        for k in self.data:
+          print(k)
+        print(self.data['init_states'][0])
+        print(self.data['tgts'][0:10])
+
+        
+        for i in range(len(self.data['final_states'])):
+          self.data['final_states'][i] = self.control_data(self.data['final_states'][i])
+        for i in range(len(self.data['init_states'])):
+          self.data['init_states'][i] = self.control_data(self.data['init_states'][i])
+        
+        with open('controlmap.json', 'w') as f:
+          json.dump(self.object_map, f)
 
 
 class TWEntitySetDataset(TWDataset):
@@ -158,6 +176,7 @@ class TWEntitySetDataset(TWDataset):
         self, data_dir, tokenizer, data_split,
         ent_set_size, control, gamefile, state_key, tgt_state_key='final_states',
         max_seq_len=512, max_data_size=10000, interleave_state_in_ctxt=False,
+        control_task=None,
         pred_action_and_response_joint=False, inform7_game=None, randseed=None, control_input=False,
         possible_pairs=None, precomputed_negs=None,
     ):
