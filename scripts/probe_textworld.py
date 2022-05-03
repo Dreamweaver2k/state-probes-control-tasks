@@ -63,6 +63,7 @@ parser.add_argument('--metric', type=str, choices=['em', 'loss'], help='which me
 parser.add_argument('--probe_save_path', type=str, default=None)
 parser.add_argument('--probe_layer', type=int, default=-1, help="which layer of the model to probe")
 parser.add_argument('--probe_type', type=str, choices=['3linear_classify', 'linear_classify', 'linear_retrieve', 'decoder'], default='decoder')
+parser.add_argument('--control_task', type=str, choices=['prop_control', 'object_control', None], default=None)
 parser.add_argument('--encode_tgt_state', type=str, default=False, choices=[False, 'NL.bart', 'NL.t5'], help="how to encode the state before probing")
 parser.add_argument('--train_data_size', type=int, default=4000)
 parser.add_argument('--tgt_agg_method', type=str, choices=['sum', 'avg', 'first', 'last', 'lin_attn', 'ffn_attn', 'self_attn'], default='avg', help="how to aggregate across tokens of target, if `encode_tgt_state` is set True")
@@ -82,7 +83,7 @@ parser.add_argument('--localizer_type', type=str, default='all',
 parser.add_argument('--seed', type=int, default=42)
 parser.add_argument('--ents_to_states_file', type=str, default=None, help='Filepath to precomputed state vectors')
 args = parser.parse_args()
-
+control_task = args.control_task
 arch = args.arch
 pretrained = not args.no_pretrain
 batchsize = args.batchsize
@@ -297,12 +298,12 @@ assert precomputed_negs is not None
 control = probe_target[2] if len(probe_target)>2 else False
 # load data
 dev_dataset = TWEntitySetDataset(
-    args.data, tokenizer, 'dev', max_seq_len=max_seq_len, ent_set_size=ent_set_size, control=control,
+    args.data, tokenizer, 'dev', max_seq_len=max_seq_len, control_task=control_task,ent_set_size=ent_set_size, control=control,
     gamefile=args.gamefile, state_key=state_key, tgt_state_key=tgt_state_key, max_data_size=max_data_size[0],
     inform7_game=inform7_game, possible_pairs=possible_pairs, precomputed_negs=precomputed_negs,
 )
 dataset = TWEntitySetDataset(
-    args.data, tokenizer, 'train', max_seq_len=max_seq_len, ent_set_size=ent_set_size, control=control,
+    args.data, tokenizer, 'train', max_seq_len=max_seq_len, control_task=control_task, ent_set_size=ent_set_size, control=control,
     gamefile=args.gamefile, state_key=state_key, tgt_state_key=tgt_state_key, max_data_size=max_data_size[1],
     inform7_game=inform7_game, possible_pairs=possible_pairs, precomputed_negs=precomputed_negs,
 )
