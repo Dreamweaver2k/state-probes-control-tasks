@@ -15,7 +15,7 @@ import torch
 from data.textworld.utils import EntitySet, gen_possible_pairs, gen_all_facts
 
 
-def main(data_dir, gamefile, out_file, state_model_path, state_model_arch, probe_target, local_files_only, state_model_layers=None, device='cuda'):
+def main(data_dir, gamefile, out_file, state_model_path, state_model_arch, probe_target, local_files_only, state_model_layers=None, device='cuda', control_task=None):
     if state_model_arch == 'bart':
         model_class = BartForConditionalGeneration
         config_class = BartConfig
@@ -58,9 +58,9 @@ def main(data_dir, gamefile, out_file, state_model_path, state_model_arch, probe
         )
     print(f"Saving state vectors to {out_file}")
 
-    dev_dataset = TWDataset(data_dir, tokenizer, 'dev', max_seq_len=float("inf"), max_data_size=float("inf"))
+    dev_dataset = TWDataset(data_dir, tokenizer, 'dev', max_seq_len=float("inf"), max_data_size=float("inf"), control_task=control_task)
     print(f"Loaded dev data: {len(dev_dataset)} examples")
-    dataset = TWDataset(data_dir, tokenizer, 'train', max_seq_len=float("inf"), max_data_size=float("inf"))
+    dataset = TWDataset(data_dir, tokenizer, 'train', max_seq_len=float("inf"), max_data_size=float("inf"), control_task=control_task)
     print(f"Loaded train data: {len(dataset)} examples")
     game_ids = dev_dataset.get_gameids() + dataset.get_gameids()
     if 'pair' in probe_target: ent_set_size=2
@@ -92,10 +92,11 @@ if __name__ == "__main__":
     parser.add_argument('--probe_target', type=str, default='belief_facts_pair', choices=['belief_facts_pair', 'belief_facts_single'])
     parser.add_argument('--local_files_only', action='store_true', default=False)
     parser.add_argument('--override_num_layers', type=int, default=None)
+    parser.add_argument('--control_task', type=str, choices=['prop_control', 'object_control', 'context_control', None], default=None)
     args = parser.parse_args()
 
     main(
         args.data_dir, args.gamefile, args.out_file, args.state_model_path,
         args.state_model_arch, args.probe_target, args.local_files_only,
-        args.override_num_layers, args.device,
+        args.override_num_layers, args.device, control_task=args.control_task,
     )
