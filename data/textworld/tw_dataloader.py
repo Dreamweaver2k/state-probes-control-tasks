@@ -4,6 +4,7 @@ import json
 import os
 from torch.utils.data import DataLoader, Dataset, IterableDataset
 import glob
+from random import choice
 from data.textworld.utils import (
     apply_mask_and_truncate, control_pairs_simple, control_pairs_with_rooms_simple,
     EntitySet, ENTITIES_SIMPLE, ROOMS_SIMPLE,
@@ -27,6 +28,7 @@ class TWDataset(Dataset):
         inform7_game=None, randseed=None, logger=None, *args, **kwargs,
     ):
         self.control_task = control_task
+        print(control_task)
         self.data_dir = data_dir
         self.tokenizer = tokenizer
         self.data_split = data_split
@@ -63,11 +65,13 @@ class TWDataset(Dataset):
         return game_ids
 
     def load_data(self):
-        # with open("controlmap.json", "r") as read_file:
-        #   print("Converting JSON encoded data into Python dictionary")
-        #   self.object_map = json.load(read_file)
+        with open("controlpropmap.json", "r") as read_file:
+          print("Converting JSON encoded data into Python dictionary")
+          self.prop_map = json.load(read_file)
         self.object_map = {}
-        self.prop_map = {}
+        print(len(self.prop_map))
+
+        # self.prop_map = {}
         init_actions_data = {'contexts': [], 'tgts': [], 'final_states': [], 'init_states': [], 'filenames': []}  # init state + actions
         n_states = 0
         files = sorted(glob.glob(os.path.join(os.path.join(self.data_dir, self.data_split), "*_states.txt")))
@@ -156,13 +160,20 @@ class TWDataset(Dataset):
         if self.logger: self.logger.info(f"Using files order: {init_actions_data['filenames']}")
         self.data = init_actions_data
         ### NEW
-        if self.control_task is "object_control":
+        print(len(self.data["final_states"][0]["full2_belief_facts"]['true']))
+        print(len(self.data["final_states"][0]["full2_belief_facts"]['false']))
+
+        print("control task: ")
+        print(self.control_task)
+        if self.control_task == "object_control":
             self.object_control()
-            with open('controlmap.json', 'w') as f:
+            with open('controlobjmap.json', 'w') as f:
                 json.dump(self.object_map, f)
-        elif self.control_task is "prop_control":
+        elif self.control_task == "prop_control":
+            print("entering prop control")
+            
             self.prop_control()
-            with open('controlmap.json', 'w') as f:
+            with open('controlpropmap.json', 'w') as f:
                 json.dump(self.prop_map, f)
         
         # for k in self.data:
@@ -179,11 +190,11 @@ class TWDataset(Dataset):
         
     
     def prop_control(self):
-        for i in range(len(self.data['final_states'])):
-            self.data['final_states'][i] = self.get_prop_remap(self.data['final_states'][i])
         for i in range(len(self.data['init_states'])):
-            self.data['init_states'][i] = self.get_prop_remap(self.data['init_states'][i])
-
+            self.get_prop_remap(self.data['init_states'][i])
+        for i in range(len(self.data['final_states'])):
+            self.get_prop_remap(self.data['final_states'][i])
+        
         for i in range(len(self.data['final_states'])):
             self.data['final_states'][i] = self.prop_remap(self.data['final_states'][i])
         for i in range(len(self.data['init_states'])):
@@ -191,9 +202,9 @@ class TWDataset(Dataset):
     
     def object_control(self):
         for i in range(len(self.data['final_states'])):
-            self.data['final_states'][i] = self.get_object_remap(self.data['final_states'][i])
+            self.get_object_remap(self.data['final_states'][i])
         for i in range(len(self.data['init_states'])):
-            self.data['init_states'][i] = self.get_object_remap(self.data['init_states'][i])
+            self.get_object_remap(self.data['init_states'][i])
 
         for i in range(len(self.data['final_states'])):
             self.data['final_states'][i] = self.object_remap(self.data['final_states'][i])
@@ -201,11 +212,11 @@ class TWDataset(Dataset):
             self.data['init_states'][i] = self.object_remap(self.data['init_states'][i])
     
     def object_remap(self,data):
-        full_facts = data['full_facts']
+        full_facts = data['full_facts']        
+        print(len(full_facts))
+        for j in range(len(full_facts)):
 
-        
-
-        for fact in full_facts:
+          fact = full_facts[j]
           objects = fact['arguments']
           for o in objects:
             name = o['name']
@@ -238,8 +249,9 @@ class TWDataset(Dataset):
         full_facts = data['full_facts']            
         
         mapped_data = {'full_facts':[], 'belief_facts': {'true': [], 'false': []}, 'full_belief_facts': {'true': [], 'false': []}, 'full2_belief_facts': {'true': [], 'false': []}, 'inventory': data['inventory'], 'description': data['description']}
+        for j in range(len(full_facts)):
+            fact= full_facts[j]
 
-        for fact in full_facts:
             prop = ''
             relation = fact['name']
             prop += relation
@@ -249,7 +261,6 @@ class TWDataset(Dataset):
                 prop += name
             if prop not in self.prop_map:
                 self.prop_map[prop] = choice(['true', 'false'])
-            
             mapped_data['full_facts'].append(fact)
             
             map_belief = self.prop_map[prop]
@@ -358,7 +369,7 @@ class TWEntitySetDataset(TWDataset):
         self.precomputed_negs = precomputed_negs
         super().__init__(
             data_dir=data_dir, tokenizer=tokenizer, data_split=data_split,
-            max_seq_len=max_seq_len, max_data_size=max_data_size, 
+            max_seq_len=max_seq_len, max_data_size=max_data_size, control_task=control_task,
             interleave_state_in_ctxt=interleave_state_in_ctxt, pred_action_and_response_joint=pred_action_and_response_joint,
             inform7_game=inform7_game, randseed=randseed,
         )
